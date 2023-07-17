@@ -6,11 +6,17 @@ from utils import *
 from functools import partial
 from pathos.multiprocessing import ProcessingPool as Pool
 import time
-from torchtext.datasets import IMDB, AG_NEWS, SogouNews, DBpedia, YelpReviewPolarity, YahooAnswers, AmazonReviewPolarity
+import pickle
+
+#allow to run on others if not installed torchtext
+try:
+    from torchtext.datasets import IMDB, AG_NEWS, SogouNews, DBpedia, YelpReviewPolarity, YahooAnswers, AmazonReviewPolarity
+except:
+    print("Failed to import from torchtext.datasets")
 
 # np.random.seed(6)
 
-def non_neural_knn_exp(compressor_name, test_data, test_label, train_data, train_label, agg_func, dis_func, k, para=True):
+def non_neural_knn_exp(compressor_name, test_data, test_label, train_data, train_label, agg_func, dis_func, k, para=True, dump_fn = None):
     print("KNN with compressor={}".format(compressor_name))
     cp = DefaultCompressor(compressor_name)
     knn_exp_ins = KnnExpText(agg_func, cp, dis_func)
@@ -23,6 +29,26 @@ def non_neural_knn_exp(compressor_name, test_data, test_label, train_data, train
     else:
         knn_exp_ins.calc_dis(test_data, train_data=train_data)
         knn_exp_ins.calc_acc(k, test_label, train_label=train_label)
+
+
+    if dump_fn:
+        pickle.dump(
+            {
+                'dis_matrix': knn_exp_ins.dis_matrix,
+
+                # [str]
+                'train_data': train_data,
+                'test_data':  test_data,
+
+                #
+                'train_label': train_label,
+                'test_label':  test_label,
+            },
+            open(dump_fn,'wb'))
+        print("WROTE:", dump_fn,
+              "MB:",
+              os.stat(dump_fn).st_size/(2**20))
+    
     print("spent: {}".format(time.time() - start))
 
 def record_distance(compressor_name, test_data, test_portion_name, train_data, agg_func, dis_func, out_dir, para=True):
@@ -66,7 +92,12 @@ if __name__ == '__main__':
     parser.add_argument('--test_idx_fn', default=None)
     parser.add_argument('--test_idx_start', type=int, default=None)
     parser.add_argument('--test_idx_end', type=int, default=None)
+
     parser.add_argument('--distance_fn', default=None)
+    parser.add_argument('--dump_fn',
+                        help = 'dump ALL data to this pickle file name',
+                        default=None)
+    
     parser.add_argument('--score', action='store_true', default=False)
     parser.add_argument('--k', default=2, type=int)
     args = parser.parse_args()
@@ -129,7 +160,7 @@ if __name__ == '__main__':
         train_pair, test_pair = dataset_pair[0], dataset_pair[1]
         train_data, train_labels = read_torch_text_labels(train_pair, range(len(train_pair)))
     if not args.record:
-        non_neural_knn_exp(args.compressor, test_data, test_labels, train_data, train_labels, agg_by_concat_space, NCD, args.k, para=args.para)
+        non_neural_knn_exp(args.compressor, test_data, test_labels, train_data, train_labels, agg_by_concat_space, NCD, args.k, para=args.para, dump_fn = args.dump_fn)
     else:
         if args.test_idx_fn is None:
             output_rel_fn = 'test_dis_idx_from_{}_to_{}'.format(args.test_idx_start, args.test_idx_end)
