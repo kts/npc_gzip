@@ -10,6 +10,12 @@ pkl file must contain a dict with fields:
  'train_label': [int]
  'dis_matrix':  [[float]]
 
+
+These pkl files can be created with the main_text.py with something like,
+(in forked repo)
+$ python main_text.py --dataset kirnews --all_train --all_test --dump_fn kirnews.pkl
+
+
 #compute all:
 python calc_acc.py  --dumpdir DUMPDIR --seed 1 --save /tmp/results.json
 
